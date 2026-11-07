@@ -5,11 +5,15 @@
   "main": "server.js",
   "scripts": {
     "build": "node scripts/build-static.js",
-    "check": "node --check server.js",
+    "check": "node --check server.js && node --check dashboard.js && node --check scripts/build-static.js",
+    "test": "node --test tests/*.test.js",
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.7.5"
   }
 }

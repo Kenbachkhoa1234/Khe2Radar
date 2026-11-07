@@ -35,6 +35,9 @@ jobs:
       - name: Run checks
         run: npm run check
 
+      - name: Test authorization flow
+        run: npm test
+
       - name: Build static frontend
         run: npm run build
 

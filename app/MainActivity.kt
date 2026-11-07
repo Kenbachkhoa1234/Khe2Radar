@@ -40,7 +40,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     // Đổi thành domain Render của bạn (hoặc http://IP_LAN:3000 nếu test local)
     private val SERVER_URL = "https://khe2-radar.onrender.com"
     private val ROOM_ID = "khe2"
-    private val deviceId = Build.MODEL + "_" + (100..999).random()
+    private val CHILD_TOKEN = "khe2-device"
+    private lateinit var deviceId: String
+    private var isAuthenticated = false
 
     private lateinit var mSocket: Socket
     private lateinit var sensorManager: SensorManager
@@ -62,6 +64,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        deviceId = "${Build.MANUFACTURER}_${Build.MODEL}_$androidId"
 
         // Dựng giao diện bằng code thuần
         rootLayout = LinearLayout(this).apply {
@@ -153,10 +157,41 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 val auth = JSONObject().apply {
                     put("role", "CHILD")
                     put("roomId", ROOM_ID)
+                    put("token", CHILD_TOKEN)
                     put("deviceId", deviceId)
                     put("name", Build.MODEL)
                 }
                 mSocket.emit("join_room", auth)
+            }
+
+            mSocket.on("auth_success") {
+                isAuthenticated = true
+                runOnUiThread {
+                    statusText.text = "\n📱 ID: $deviceId\n🟢 Máy con đã được xác thực."
+                }
+                sendDeviceUpdate()
+            }
+
+            mSocket.on("auth_error") { args ->
+                isAuthenticated = false
+                val message = args.firstOrNull()?.toString() ?: "Xác thực thất bại"
+                runOnUiThread { statusText.text = "\n🔴 $message" }
+            }
+
+            mSocket.on("server_error") { args ->
+                val message = args.firstOrNull()?.toString() ?: "Server từ chối yêu cầu"
+                runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
+            }
+
+            mSocket.on(Socket.EVENT_DISCONNECT) {
+                isAuthenticated = false
+                runOnUiThread { statusText.text = "\n🟠 Mất kết nối, đang thử kết nối lại..." }
+            }
+
+            mSocket.on(Socket.EVENT_CONNECT_ERROR) { args ->
+                isAuthenticated = false
+                val message = args.firstOrNull()?.toString() ?: "Không kết nối được server"
+                runOnUiThread { statusText.text = "\n🔴 $message" }
             }
 
             mSocket.on("mode_changed") { args ->
@@ -194,7 +229,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun sendDeviceUpdate() {
-        if (!mSocket.connected()) return
+        if (!mSocket.connected() || !isAuthenticated) return
 
         val bm = getSystemService(BATTERY_SERVICE) as BatteryManager
         val batteryPct = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -297,7 +332,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                             put("name", Build.MODEL)
                             put("message", "Thiết bị vừa bị nhấc lên khỏi vị trí hoặc di chuyển!")
                         }
-                        mSocket.emit("device_alert", alert)
+                        if (isAuthenticated) mSocket.emit("device_alert", alert)
                     }
                 }
             } else {
