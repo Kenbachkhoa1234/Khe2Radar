@@ -1,0 +1,11 @@
+node_modules/
+app/.gradle/
+.vercel/
+.env
+.env.*
+!.env.example
+*.apk
+*.aab
+*.jks
+*.keystore
+
