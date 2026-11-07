@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khe2 Radar - Trạm Quản Lý & Chống Trộm</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg-panel: #16171a;
+            --accent: #00e676;
+            --card-bg: #222328;
+        }
+        body.shield-mode {
+            --bg-panel: #1c0f12;
+            --accent: #ff1744;
+            --card-bg: #2d161a;
+        }
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            height: 100vh; 
+            background: #0e0e11; 
+            color: white; 
+            transition: 0.3s; 
+        }
+        
+        /* Modal Đăng nhập */
+        #login-modal { 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(5,5,8,0.95); 
+            z-index: 9999; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        .login-box { 
+            background: #1a1b22; 
+            padding: 30px; 
+            border-radius: 14px; 
+            width: 330px; 
+            text-align: center; 
+            border: 1px solid #333; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8); 
+        }
+        .login-box input { 
+            width: 100%; 
+            padding: 12px; 
+            margin: 8px 0; 
+            border-radius: 6px; 
+            border: 1px solid #444; 
+            background: #0a0a0c; 
+            color: #fff; 
+            box-sizing: border-box; 
+            text-align: center; 
+            font-size: 15px; 
+        }
+        .login-box button { 
+            width: 100%; 
+            padding: 12px; 
+            background: #00e676; 
+            border: none; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 15px; 
+            margin-top: 8px; 
+            color: #000; 
+        }
+        
+        .qr-section { 
+            margin-top: 20px; 
+            padding-top: 15px; 
+            border-top: 1px dashed #3a3a44; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+        #qrcode { 
+            background: white; 
+            padding: 10px; 
+            border-radius: 8px; 
+            display: inline-block; 
+        }
+        .download-link { 
+            color: #00e676; 
+            font-size: 13px; 
+            text-decoration: none; 
+            margin-top: 8px; 
+            display: inline-block; 
+            font-weight: bold; 
+        }
+
+        /* Giao diện chính */
+        #map { flex: 2.2; height: 100%; }
+        #sidebar { 
+            flex: 1; 
+            min-width: 340px; 
+            padding: 20px; 
+            overflow-y: auto; 
+            background: var(--bg-panel); 
+            border-left: 3px solid var(--accent); 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            transition: 0.3s; 
+        }
+        
+        .mode-switcher { display: flex; background: #000; border-radius: 10px; padding: 5px; gap: 5px; }
+        .mode-btn { 
+            flex: 1; 
+            padding: 10px; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            color: #888; 
+            background: transparent; 
+            transition: 0.2s; 
+            font-size: 13px; 
+        }
+        .mode-btn.active-normal { background: #00e676; color: #000; }
+        .mode-btn.active-shield { background: #ff1744; color: #fff; box-shadow: 0 0 10px rgba(255,23,68,0.5); }
+        
+        .panic-box { display: none; flex-direction: column; gap: 8px; }
+        body.shield-mode .panic-box { display: flex; }
+        .panic-btn { 
+            background: #ff1744; 
+            color: white; 
+            border: none; 
+            padding: 14px; 
+            font-size: 15px; 
+            font-weight: bold; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 15px rgba(255,23,68,0.4); 
+        }
+        .unlock-all-btn { 
+            background: #00e676; 
+            color: #000; 
+            border: none; 
+            padding: 10px; 
+            font-weight: bold; 
+            border-radius: 8px; 
+            cursor: pointer; 
+        }
+
+        .device-card { 
+            background: var(--card-bg); 
+            padding: 14px; 
+            border-radius: 10px; 
+            border-left: 5px solid var(--accent); 
+            margin-bottom: 10px; 
+            position: relative; 
+        }
+        .device-card.moving-alert { animation: alertPulse 0.8s infinite alternate; border-left-color: #ffea00; }
+        @keyframes alertPulse { from { background: var(--card-bg); } to { background: #4a2800; } }
+
+        .btn-group { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+        button.action { padding: 7px 11px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px; }
+        
+        .shield-actions { display: none; gap: 6px; width: 100%; margin-top: 6px; }
+        body.shield-mode .shield-actions { display: flex; }
+
+        #logs { 
+            background: #070709; 
+            padding: 12px; 
+            border-radius: 8px; 
+            height: 120px; 
+            overflow-y: auto; 
+            font-family: 'Courier New', monospace; 
+            font-size: 12px; 
+            color: var(--accent); 
+            border: 1px solid #222; 
+        }
+    </style>
+</head>
+<body>
+
+<div id="login-modal">
+    <div class="login-box">
+        <h2 style="margin: 0 0 10px 0;">📡 Khe2 Radar</h2>
+        <input type="text" id="room-input" placeholder="Mã nhóm" value="khe2_zone">
+        <input type="password" id="pin-input" placeholder="Mã PIN Admin" value="9999">
+        <button id="login-btn" onclick="doLogin()">Vào Trạm Quản Lý</button>
+        <p id="login-err" style="color: #ffea00; font-size: 13px; margin: 8px 0 0 0; min-height: 18px;"></p>
+
+        <div class="qr-section">
+            <span style="font-size: 12px; color: #aaa; margin-bottom: 8px;">📲 Quét QR cài App cho Máy Con:</span>
+            <div id="qrcode"></div>
+            <a id="apk-url" class="download-link" href="/khe2-radar.apk" download>Hoặc tải trực tiếp file APK</a>
+        </div>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<div id="sidebar">
+    <h2 style="margin:0; display:flex; justify-content:space-between; align-items:center;">
+        <span>📡 Khe2 Radar</span>
+        <span id="badge-mode" style="font-size:12px; padding:3px 8px; background:#333; border-radius:10px;">🟢 CHILL MODE</span>
+    </h2>
+
+    <div class="mode-switcher">
+        <button id="btn-normal" class="mode-btn active-normal" onclick="switchMode('NORMAL')">🟢 Khe2 Chill</button>
+        <button id="btn-shield" class="mode-btn" onclick="switchMode('SHIELD')">🔴 Radar 10m</button>
+    </div>
+
+    <div class="panic-box">
+        <button class="panic-btn" onclick="sendCommand('ALL', 'PANIC')">🚨 PANIC (KHÓA & HÚ CÒI TẤT CẢ)</button>
+        <button class="unlock-all-btn" onclick="sendCommand('ALL', 'UNLOCK')">🔓 MỞ KHÓA TẤT CẢ MÁY</button>
+    </div>
+
+    <h3 style="margin: 5px 0 0 0;">📱 Máy Con Trực Tuyến</h3>
+    <div id="device-list">Đang chờ máy con kết nối...</div>
+
+    <h3 style="margin: 5px 0 0 0;">⚡ Nhật Ký Trạm Radar</h3>
+    <div id="logs"></div>
+</div>
+
+<!-- Firebase SDK v8 & Libraries -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script>
+    // 1. Cấu hình Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyCSrf4B_pXzExo8aVXjxu-EzSMqrkJQ5Eo",
+        authDomain: "khe2radar.firebaseapp.com",
+        databaseURL: "https://khe2radar-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "khe2radar",
+        storageBucket: "khe2radar.firebasestorage.app",
+        messagingSenderId: "829252002182",
+        appId: "1:829252002182:web:131cc78bd63983bdbb0c07",
+        measurementId: "G-5TWF9VYH2D"
+    };
+
+    let db;
+    try {
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.database();
+    } catch (e) {
+        console.error("Lỗi khởi tạo Firebase:", e);
+        document.getElementById('login-err').innerText = "Lỗi CDN Firebase: Kiểm tra mạng!";
+    }
+
+    // QR Code
+    try {
+        const apkUrl = window.location.origin + '/khe2-radar.apk';
+        new QRCode(document.getElementById("qrcode"), {
+            text: apkUrl,
+            width: 125,
+            height: 125
+        });
+        document.getElementById("apk-url").href = apkUrl;
+    } catch (e) {
+        console.warn("Lỗi sinh QR:", e);
+    }
+
+    // Bản đồ Leaflet
+    const map = L.map('map').setView([10.762622, 106.660172], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    let markers = {};
+    let safeCircles = {};
+    let currentMode = 'NORMAL';
+    let roomId = 'khe2_zone';
+
+    function logEvent(msg) {
+        const l = document.getElementById('logs');
+        l.innerHTML = `[${new Date().toLocaleTimeString('vi-VN')}] ${msg}<br>` + l.innerHTML;
+    }
+
+    // Đăng nhập an toàn: Không bao giờ bị treo nút
+    function doLogin() {
+        roomId = document.getElementById('room-input').value.trim() || 'khe2_zone';
+        const pin = document.getElementById('pin-input').value.trim() || '9999';
+        const errText = document.getElementById('login-err');
+        const loginBtn = document.getElementById('login-btn');
+
+        errText.innerText = "Đang kết nối Firebase...";
+        loginBtn.disabled = true;
+
+        if (!db) {
+            enterDashboard("Cảnh báo: Đang chạy Offline (Không có Firebase)");
+            return;
+        }
+
+        let isCompleted = false;
+
+        // Cơ chế Timeout: Nếu mạng lag quá 4s, tự động mở trạm luôn để test giao diện
+        const timeoutTimer = setTimeout(() => {
+            if (!isCompleted) {
+                isCompleted = true;
+                enterDashboard("Kết nối chậm: Đã mở trạm khẩn cấp.");
+            }
+        }, 4000);
+
+        db.ref(`families/${roomId}/settings`).once('value')
+            .then((snap) => {
+                if (isCompleted) return;
+                clearTimeout(timeoutTimer);
+                isCompleted = true;
+
+                const settings = snap.val();
+                if (!settings || settings.pin === pin) {
+                    if (!settings) {
+                        db.ref(`families/${roomId}/settings`).set({ pin: pin, mode: 'NORMAL' })
+                            .catch(err => console.error("Lỗi ghi settings:", err));
+                    }
+                    enterDashboard();
+                } else {
+                    loginBtn.disabled = false;
+                    errText.style.color = "#ff1744";
+                    errText.innerText = 'Sai mã PIN Admin!';
+                }
+            })
+            .catch((error) => {
+                if (isCompleted) return;
+                clearTimeout(timeoutTimer);
+                isCompleted = true;
+                console.error("Lỗi truy vấn Firebase:", error);
+                // Vẫn cho vào nếu do lỗi Rules hoặc lỗi mạng test
+                enterDashboard("Vào bằng chế độ dự phòng (" + error.message + ")");
+            });
+    }
+
+    function enterDashboard(warnMsg) {
+        document.getElementById('login-modal').style.display = 'none';
+        // Ép map vẽ lại toàn màn hình sau khi tắt modal
+        setTimeout(() => map.invalidateSize(), 200);
+
+        if (warnMsg) {
+            logEvent(`⚠️ ${warnMsg}`);
+        } else {
+            logEvent(`Đăng nhập thành công vào phòng [${roomId}]`);
+        }
+        initListeners();
+    }
+
+    function switchMode(newMode) {
+        if (!db) return;
+        db.ref(`families/${roomId}/settings/mode`).set(newMode);
+    }
+
+    function sendCommand(targetDeviceId, command) {
+        if (!db) return;
+        const timestamp = Date.now();
+        if (targetDeviceId === 'ALL') {
+            db.ref(`families/${roomId}/devices`).once('value', (snap) => {
+                const devs = snap.val() || {};
+                for (let id in devs) {
+                    db.ref(`families/${roomId}/commands/${id}`).set({ command, timestamp });
+                }
+            });
+        } else {
+            db.ref(`families/${roomId}/commands/${targetDeviceId}`).set({ command, timestamp });
+        }
+        logEvent(`Đã gửi lệnh [${command}] tới [${targetDeviceId}]`);
+    }
+
+    function initListeners() {
+        if (!db) return;
+
+        // 1. Lắng nghe chế độ
+        db.ref(`families/${roomId}/settings/mode`).on('value', (snap) => {
+            currentMode = snap.val() || 'NORMAL';
+            const b = document.body;
+            const btnN = document.getElementById('btn-normal');
+            const btnS = document.getElementById('btn-shield');
+            const badge = document.getElementById('badge-mode');
+
+            if (currentMode === 'SHIELD') {
+                b.classList.add('shield-mode');
+                btnS.className = 'mode-btn active-shield';
+                btnN.className = 'mode-btn';
+                badge.innerText = '🔴 RADAR 10M';
+                logEvent('🛡️ ĐÃ KÍCH HOẠT RADAR 10M!');
+            } else {
+                b.classList.remove('shield-mode');
+                btnN.className = 'mode-btn active-normal';
+                btnS.className = 'mode-btn';
+                badge.innerText = '🟢 CHILL MODE';
+                logEvent('🟢 Trở về Chế độ Chill.');
+                for (let id in safeCircles) {
+                    map.removeLayer(safeCircles[id]);
+                    delete safeCircles[id];
+                }
+            }
+        });
+
+        // 2. Lắng nghe danh sách Máy Con
+        db.ref(`families/${roomId}/devices`).on('value', (snap) => {
+            const devices = snap.val() || {};
+            const list = document.getElementById('device-list');
+            list.innerHTML = '';
+
+            let hasDevices = false;
+
+            for (let id in devices) {
+                hasDevices = true;
+                const dev = devices[id];
+                const isAlert = (currentMode === 'SHIELD' && dev.isMoving);
+                const lastSeenStr = dev.lastSeen ? new Date(dev.lastSeen).toLocaleTimeString('vi-VN') : 'Mới đây';
+
+                list.innerHTML += `
+                    <div class="device-card ${isAlert ? 'moving-alert' : ''}">
+                        <div style="display:flex; justify-content:space-between;">
+                            <strong>${dev.name || id}</strong>
+                            <span>🔋 ${dev.battery || 0}% ${dev.isCharging ? '⚡' : ''}</span>
+                        </div>
+                        <small style="color:#aaa;">
+                            🏃 ${dev.isMoving ? '<b style="color:#ffea00">Di chuyển!</b>' : 'Đứng yên'} | ⏱ ${lastSeenStr}
+                        </small>
+                        <div class="btn-group">
+                            <button class="action" style="background:#00e676; color:#000;" onclick="map.flyTo([${dev.lat}, ${dev.lng}], 18)">📍 Định vị</button>
+                            <button class="action" style="background:#ff4081; color:#fff;" onclick="sendCommand('${id}', 'PING_HEART')">💖 Thả tim</button>
+                        </div>
+                        <div class="shield-actions">
+                            <button class="action" style="background:#ff9100; color:#000;" onclick="sendCommand('${id}', 'RING')">🔊 Hú còi</button>
+                            <button class="action" style="background:#2979ff; color:#fff;" onclick="sendCommand('${id}', 'LOCK')">🔒 Khóa đỏ</button>
+                            <button class="action" style="background:#444; color:#fff;" onclick="sendCommand('${id}', 'FAKE_SHUTDOWN')">⬛ Tắt giả</button>
+                            <button class="action" style="background:#00e676; color:#000;" onclick="sendCommand('${id}', 'UNLOCK')">🔓 Mở</button>
+                        </div>
+                    </div>
+                `;
+
+                if (dev.lat && dev.lng) {
+                    if (!markers[id]) {
+                        markers[id] = L.marker([dev.lat, dev.lng]).addTo(map);
+                    } else {
+                        markers[id].setLatLng([dev.lat, dev.lng]);
+                    }
+                    markers[id].bindPopup(`<b>${dev.name || id}</b><br>Pin: ${dev.battery}%<br>${dev.isMoving ? '🏃 Đang di chuyển' : '🛋️ Đứng yên'}`);
+
+                    if (currentMode === 'SHIELD') {
+                        if (!safeCircles[id]) {
+                            safeCircles[id] = L.circle([dev.lat, dev.lng], {
+                                color: '#ff1744', fillColor: '#ff1744', fillOpacity: 0.15, radius: 10
+                            }).addTo(map);
+                        } else {
+                            safeCircles[id].setLatLng([dev.lat, dev.lng]);
+                        }
+                    }
+                }
+            }
+
+            if (!hasDevices) {
+                list.innerHTML = 'Đang chờ máy con kết nối...';
+            }
+        });
+
+        // 3. Lắng nghe cảnh báo nhấc máy
+        db.ref(`families/${roomId}/alerts/latest`).on('value', (snap) => {
+            const data = snap.val();
+            if (data && (Date.now() - (data.timestamp || 0) < 5000)) {
+                logEvent(`🚨 BÁO ĐỘNG TỪ [${data.deviceName}]: ${data.message}`);
+                try {
+                    const ctx = new AudioContext();
+                    const osc = ctx.createOscillator();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(650, ctx.currentTime);
+                    osc.connect(ctx.destination);
+                    osc.start();
+                    setTimeout(() => osc.stop(), 500);
+                } catch (e) {}
+            }
+        });
+    }
+</script>
+</body>
+</html>
