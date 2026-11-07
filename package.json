@@ -4,6 +4,7 @@
   "description": "Khe2 Radar MDM & Anti-theft System",
   "main": "server.js",
   "scripts": {
+    "build": "node scripts/build-static.js",
     "check": "node --check server.js",
     "start": "node server.js"
   },

@@ -35,10 +35,13 @@ jobs:
       - name: Run checks
         run: npm run check
 
+      - name: Build static frontend
+        run: npm run build
+
       - name: Verify deploy entrypoint
         shell: bash
         run: |
-          test -s index.html
+          test -s dist/index.html
           test -s vercel.json
 
       - name: Reject generated files committed to Git
