@@ -156,7 +156,7 @@ document.getElementById('pin-input').addEventListener('keydown', (event) => {
 });
 
 try {
-  const apkUrl = `${SERVER_URL}/khe2-radar.apk`;
+  const apkUrl = `${window.location.origin}/khe2-radar.apk`;
   new QRCode(document.getElementById('qrcode'), { text: apkUrl, width: 125, height: 125 });
   document.getElementById('apk-url').href = apkUrl;
 } catch (_) {}

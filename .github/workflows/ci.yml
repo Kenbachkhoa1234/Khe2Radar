@@ -29,6 +29,13 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
       - name: Install dependencies
         run: npm ci
 
@@ -38,6 +45,11 @@ jobs:
       - name: Test authorization flow
         run: npm test
 
+      - name: Build Android APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
       - name: Build static frontend
         run: npm run build
 
@@ -45,12 +57,14 @@ jobs:
         shell: bash
         run: |
           test -s dist/index.html
+          test -s dist/dashboard.js
+          test -s dist/khe2-radar.apk
           test -s vercel.json
 
       - name: Reject generated files committed to Git
         shell: bash
         run: |
-          if git ls-files | grep -Eq '(^|/)node_modules/|(^|/)\.gradle/|\.apk$|\.aab$'; then
+          if git ls-files | grep -Ev '^khe2-radar\.apk$' | grep -Eq '(^|/)node_modules/|(^|/)\.gradle/|\.apk$|\.aab$'; then
             echo "Generated files must not be committed."
             exit 1
           fi

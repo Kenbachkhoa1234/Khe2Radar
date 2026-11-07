@@ -1,11 +1,16 @@
 node_modules/
 dist/
 app/.gradle/
+app/build/
+.gradle/
+/build/
+local.properties
 .vercel/
 .env
 .env.*
 !.env.example
 *.apk
+!khe2-radar.apk
 *.aab
 *.jks
 *.keystore
