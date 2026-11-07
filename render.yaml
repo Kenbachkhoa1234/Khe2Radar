@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: khe2-radar
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: ROOM_ID
+        value: khe2
+      - key: ADMIN_PIN
+        sync: false
+      - key: CHILD_TOKEN
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://khe2-radar.vercel.app
